@@ -39,4 +39,15 @@ public class Product {
         }
         this.quantity += amount;
     }
+
+    // 비즈니스 메서드: 재고 수량 감소(출고)
+    public void removeQuantity(Integer amount) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("출고 수량은 0보다 커야 합니다.");
+        }
+        if (this.quantity < amount) {
+            throw new IllegalArgumentException("창고 재고가 부족합니다. 현재 재고: " + this.quantity);
+        }
+        this.quantity -= amount;
+    }
 }

@@ -3,6 +3,7 @@ package com.wms.miniwms.service;
 import com.wms.miniwms.domain.Product;
 import com.wms.miniwms.dto.ProductCreateRequest;
 import com.wms.miniwms.dto.ProductInboundRequest;
+import com.wms.miniwms.dto.ProductOutboundRequest;
 import com.wms.miniwms.dto.ProductResponse;
 import com.wms.miniwms.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -58,5 +59,15 @@ public class ProductService {
 
         // 2. 찾아온 상품 객체에 재고 증가 위임
         product.addQuantity(request.getAmount());
+    }
+
+    @Transactional
+    public void outboundProduct(Long id, ProductOutboundRequest request) {
+        // 1. 창고에서 해당 상품이 존재하는지 먼저 확인
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 상품입니다. ID:" + id));
+
+        // 2. 찾아온 상품 객체에 재고 차감 위임 (재고 부족 시 엔티티 내부에서 예외 처리)
+        product.removeQuantity(request.getAmount());
     }
 }
