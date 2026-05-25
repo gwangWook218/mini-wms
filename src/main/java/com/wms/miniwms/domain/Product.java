@@ -31,4 +31,12 @@ public class Product {
         this.price = price;
         this.quantity = quantity;
     }
+
+    // 비즈니스 메서드: 재고 수량 증가(입고)
+    public void addQuantity(Integer amount) {
+        if (amount <= 0) {
+            throw new IllegalArgumentException("입고 수량은 0보다 커야 합니다.");
+        }
+        this.quantity += amount;
+    }
 }

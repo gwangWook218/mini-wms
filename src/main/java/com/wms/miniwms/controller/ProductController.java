@@ -1,6 +1,7 @@
 package com.wms.miniwms.controller;
 
 import com.wms.miniwms.dto.ProductCreateRequest;
+import com.wms.miniwms.dto.ProductInboundRequest;
 import com.wms.miniwms.dto.ProductResponse;
 import com.wms.miniwms.service.ProductService;
 import jakarta.validation.Valid;
@@ -40,5 +41,14 @@ public class ProductController {
     public ResponseEntity<List<ProductResponse>> getAllProducts() {
         List<ProductResponse> responses = productService.getAllProducts();
         return ResponseEntity.ok(responses);
+    }
+
+    // 기존 상품 재고 추가(입고) API
+    @PatchMapping("/{id}/inbound")
+    public ResponseEntity<Void> inboundProduct(
+            @PathVariable Long id,
+            @Valid @RequestBody ProductInboundRequest request) {
+        productService.inboundProduct(id, request);
+        return ResponseEntity.ok().build(); // 특별히 반환할 데이터가 없으므로 200 OK 상태코드만 깔끔하게 반환
     }
 }

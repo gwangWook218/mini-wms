@@ -2,6 +2,7 @@ package com.wms.miniwms.service;
 
 import com.wms.miniwms.domain.Product;
 import com.wms.miniwms.dto.ProductCreateRequest;
+import com.wms.miniwms.dto.ProductInboundRequest;
 import com.wms.miniwms.dto.ProductResponse;
 import com.wms.miniwms.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -47,5 +48,15 @@ public class ProductService {
         return productRepository.findAll().stream()
                 .map(ProductResponse::new) // 찾아온 엔티티들을 DTO로 변환
                 .toList();
+    }
+
+    @Transactional // 데이터가 변경되므로 readOnly 없이 일반 @Transactional 필수!
+    public void inboundProduct(Long id, ProductInboundRequest request) {
+        // 1. 창고에서 해당 상품이 존재하는지 먼저 확인
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 상품입니다. ID:" + id));
+
+        // 2. 찾아온 상품 객체에 재고 증가 위임
+        product.addQuantity(request.getAmount());
     }
 }
