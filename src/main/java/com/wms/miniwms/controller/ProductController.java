@@ -1,9 +1,6 @@
 package com.wms.miniwms.controller;
 
-import com.wms.miniwms.dto.ProductCreateRequest;
-import com.wms.miniwms.dto.ProductInboundRequest;
-import com.wms.miniwms.dto.ProductOutboundRequest;
-import com.wms.miniwms.dto.ProductResponse;
+import com.wms.miniwms.dto.*;
 import com.wms.miniwms.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -61,5 +58,12 @@ public class ProductController {
             ) {
         productService.outboundProduct(id, request);
         return ResponseEntity.ok().build();
+    }
+
+    // 전체 입출고 이력 조회 API
+    @GetMapping("/histories")
+    public ResponseEntity<List<ProductHistoryResponse>> getAllHistories() {
+        List<ProductHistoryResponse> histories = productService.getAllHistories();
+        return ResponseEntity.ok(histories);
     }
 }

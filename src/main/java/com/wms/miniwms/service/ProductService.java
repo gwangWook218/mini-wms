@@ -1,10 +1,10 @@
 package com.wms.miniwms.service;
 
+import com.wms.miniwms.domain.InboundOutboundType;
 import com.wms.miniwms.domain.Product;
-import com.wms.miniwms.dto.ProductCreateRequest;
-import com.wms.miniwms.dto.ProductInboundRequest;
-import com.wms.miniwms.dto.ProductOutboundRequest;
-import com.wms.miniwms.dto.ProductResponse;
+import com.wms.miniwms.domain.ProductHistory;
+import com.wms.miniwms.dto.*;
+import com.wms.miniwms.repository.ProductHistoryRepository;
 import com.wms.miniwms.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,6 +17,7 @@ import java.util.List;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final ProductHistoryRepository productHistoryRepository;
 
     // 신규 상품 등록(입고)
     @Transactional // 데이터 변경이 발생하는 Method에서는 필수
@@ -51,6 +52,7 @@ public class ProductService {
                 .toList();
     }
 
+    // 상품 입고 (재고 추가 + 이력 기록)
     @Transactional // 데이터가 변경되므로 readOnly 없이 일반 @Transactional 필수!
     public void inboundProduct(Long id, ProductInboundRequest request) {
         // 1. 창고에서 해당 상품이 존재하는지 먼저 확인
@@ -59,8 +61,17 @@ public class ProductService {
 
         // 2. 찾아온 상품 객체에 재고 증가 위임
         product.addQuantity(request.getAmount());
+
+        // 3. 입고 이력 빌드 및 저장
+        ProductHistory history = ProductHistory.builder()
+                .product(product)
+                .type(InboundOutboundType.INBOUND)
+                .amount(request.getAmount())
+                .build();
+        productHistoryRepository.save(history);
     }
 
+    // 상품 출고 (재고 차감 + 이력 기록)
     @Transactional
     public void outboundProduct(Long id, ProductOutboundRequest request) {
         // 1. 창고에서 해당 상품이 존재하는지 먼저 확인
@@ -69,5 +80,21 @@ public class ProductService {
 
         // 2. 찾아온 상품 객체에 재고 차감 위임 (재고 부족 시 엔티티 내부에서 예외 처리)
         product.removeQuantity(request.getAmount());
+
+        // 3. 출고 이력 빌드 및 저장
+        ProductHistory history = ProductHistory.builder()
+                .product(product)
+                .type(InboundOutboundType.OUTBOUND)
+                .amount(request.getAmount())
+                .build();
+        productHistoryRepository.save(history);
+    }
+
+    // 전체 입출고 이력 조회
+    @Transactional(readOnly = true) // 찾아온 엔티티들을 DTO로 변환
+    public List<ProductHistoryResponse> getAllHistories() {
+        return productHistoryRepository.findAll().stream()
+                .map(ProductHistoryResponse::new) // 찾아온 엔티티들을 DTO로 변환
+                .toList();
     }
 }
