@@ -55,7 +55,7 @@ public class ProductService {
     public void inboundProduct(Long id, ProductInboundRequest request) {
         // 1. 창고에서 해당 상품이 존재하는지 먼저 확인
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 상품입니다. ID:" + id));
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 상품입니다. ID: " + id));
 
         // 2. 찾아온 상품 객체에 재고 증가 위임
         product.addQuantity(request.getAmount());
@@ -65,7 +65,7 @@ public class ProductService {
     public void outboundProduct(Long id, ProductOutboundRequest request) {
         // 1. 창고에서 해당 상품이 존재하는지 먼저 확인
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 상품입니다. ID:" + id));
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 상품입니다. ID: " + id));
 
         // 2. 찾아온 상품 객체에 재고 차감 위임 (재고 부족 시 엔티티 내부에서 예외 처리)
         product.removeQuantity(request.getAmount());
