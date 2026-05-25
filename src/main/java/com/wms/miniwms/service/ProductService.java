@@ -32,6 +32,17 @@ public class ProductService {
         // 2. DB에 저장
         Product saveProduct = productRepository.save(product);
 
+        // 2-[추가]. 신규 등록 시 입력한 수량도 '최초 입고 박스'로 이력에 등록
+        if (request.getQuantity() > 0) {
+            ProductHistory history = ProductHistory.builder()
+                    .product(saveProduct)
+                    .type(InboundOutboundType.INBOUND)
+                    .amount(request.getQuantity())
+                    .remainedQuantity(request.getQuantity()) // 최초 등록 수량이 곧 남은 수량
+                    .build();
+            productHistoryRepository.save(history);
+        }
+
         // 3. 저장된 상품의 고유 Id 반환
         return saveProduct.getId();
     }
@@ -67,6 +78,7 @@ public class ProductService {
                 .product(product)
                 .type(InboundOutboundType.INBOUND)
                 .amount(request.getAmount())
+                .remainedQuantity(request.getAmount())
                 .build();
         productHistoryRepository.save(history);
     }
@@ -81,13 +93,38 @@ public class ProductService {
         // 2. 찾아온 상품 객체에 재고 차감 위임 (재고 부족 시 엔티티 내부에서 예외 처리)
         product.removeQuantity(request.getAmount());
 
-        // 3. 출고 이력 빌드 및 저장
-        ProductHistory history = ProductHistory.builder()
+        // 3. [FIFO 알고리즘 시작] 오래된 순서대로 잔여 재고가 남아있는 입고 박스들 소환
+        List<ProductHistory> inboundReceipts = productHistoryRepository
+                .findByProductAndTypeAndRemainedQuantityGreaterThanOrderByCreatedAtAsc(product, InboundOutboundType.INBOUND, 0);
+
+        int totalToAmount = request.getAmount(); // 손님이 요청한 출고 총 수량
+
+        for (ProductHistory receipt :inboundReceipts) {
+            if (totalToAmount <= 0) {
+                break; // 손님이 달라는 수량을 다 채웠으면 탈출!
+            }
+
+            int remained = receipt.getRemainedQuantity(); // 현재 박스에 남아있는 상품 수량
+
+            if (remained <= totalToAmount) {
+                // 케이스 A: 현재 박스의 상품이 필요한 양보다 적거나 딱 맞음 -> 모든 잔여량 차감
+                totalToAmount -= remained; // 박스에 있던 수량만큼 요구량 차감
+                receipt.consumeQuantity(remained); // 이 박스의 남은 수량은 0이 됨
+            } else {
+                // 케이스 B: 현재 박스의 상품이 넉넉함 -> 필요한 만큼 차감
+                receipt.consumeQuantity(totalToAmount); // 필요한 만큼만 차감
+                totalToAmount = 0; // 요구량 충족
+            }
+        }
+
+        // 4. 출고 영수증 최종 발행
+        ProductHistory outboundHistory = ProductHistory.builder()
                 .product(product)
                 .type(InboundOutboundType.OUTBOUND)
                 .amount(request.getAmount())
+                .remainedQuantity(0)
                 .build();
-        productHistoryRepository.save(history);
+        productHistoryRepository.save(outboundHistory);
     }
 
     // 전체 입출고 이력 조회

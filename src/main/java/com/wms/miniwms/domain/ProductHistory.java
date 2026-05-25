@@ -35,10 +35,22 @@ public class ProductHistory {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(nullable = false)
+    private Integer remainedQuantity; // 해당 입고 건의 '현재 남은 재고 수량' (출고 건일 경우 0으로 세팅)
+
     @Builder
-    public ProductHistory(Product product, InboundOutboundType type, Integer amount) {
+    public ProductHistory(Product product, InboundOutboundType type, Integer amount, Integer remainedQuantity) {
         this.product = product;
         this.type = type;
         this.amount = amount;
+        this.remainedQuantity = remainedQuantity;
+    }
+
+    // 비즈니스 메서드: 선입선출 차감 시 해당 입고 건의 남은 수량 감소시킴
+    public void consumeQuantity(Integer count) {
+        if (this.remainedQuantity < count) {
+            throw new IllegalArgumentException("해당 입고 건의 잔여 수량이 부족합니다.");
+        }
+        this.remainedQuantity -= count;
     }
 }
