@@ -14,6 +14,7 @@ public class ProductHistoryResponse {
     private String productName;
     private InboundOutboundType type;
     private Integer amount;
+    private Integer remainedQuantity;
     private LocalDateTime createdAt;
 
     public ProductHistoryResponse(ProductHistory history) {
@@ -22,6 +23,7 @@ public class ProductHistoryResponse {
         this.productName = history.getProduct().getName();
         this.type = history.getType();
         this.amount = history.getAmount();
+        this.remainedQuantity = history.getRemainedQuantity();
         this.createdAt = history.getCreatedAt();
     }
 }

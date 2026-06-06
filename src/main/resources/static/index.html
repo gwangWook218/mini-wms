@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini-WMS 관리자 대시보드</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .card { border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+
+<div class="container my-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📦 Mini-WMS <span class="fs-5 text-muted">경량형 창고 관리 시스템</span></h2>
+        <button class="btn btn-primary" onclick="openCreateProductModal()">✨ 신규 상품 등록</button>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-7">
+            <div class="card p-4">
+                <h5 class="card-title mb-3 text-primary">📋 실시간 재고 마스터</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>상품명</th>
+                            <th>가격</th>
+                            <th>현재 총 재고</th>
+                            <th>작업</th>
+                        </tr>
+                        </thead>
+                        <tbody id="product-list-body">
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">상품 데이터를 불러오는 중입니다...</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card p-4">
+                <h5 class="card-title mb-3 text-success">📜 입출고 감사 장부 (FIFO 로그)</h5>
+                <div class="list-group list-group-flush" id="history-list-group" style="max-height: 400px; overflow-y: auto;">
+                    <div class="text-center text-muted py-4">이력 데이터를 불러오는 중입니다...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="wmsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">재고 처리</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modalProductId">
+                <input type="hidden" id="modalType">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">선택된 상품</label>
+                    <input type="text" class="form-control" id="modalProductName" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="modalAmount" class="form-label fw-bold" id="modalAmountLabel">수량 입력</label>
+                    <input type="number" class="form-control" id="modalAmount" min="1" placeholder="수량을 입력하세요.">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" id="modalSubmitBtn" onclick="submitStockAction()">확인</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="productCreateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createTitle">✨ 신규 상품 마스터 등록</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">상품명</label>
+                    <input type="text" class="form-control" id="createProductName" placeholder="등록할 상품명을 입력하세요.">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">가격 (원)</label>
+                    <input type="number" class="form-control" id="createProductPrice" min="0" placeholder="상품의 가격을 입력하세요.">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">최초 입고 수량</label>
+                    <input type="number" class="form-control" id="createProductQuantity" min="0" placeholder="최초로 입고할 수량을 입력하세요.">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" id="createSubmitBtn" onclick="submitCreateProduct()">등록</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // 💡 부트스트랩 모달 조작 객체를 각각의 독립된 주머니로 분리 선언합니다.
+    let stockModalObj;
+    let createModalObj;
+
+    // 페이지 로드 시 백엔드 API 호출 및 모달 객체 초기화 (하나로 통합)
+    document.addEventListener("DOMContentLoaded", function() {
+        stockModalObj = new bootstrap.Modal(document.getElementById('wmsModal'));
+        createModalObj = new bootstrap.Modal(document.getElementById('productCreateModal'));
+        loadProducts();
+        loadHistories();
+    });
+
+    // 1. 백엔드에서 상품 목록을 가져와 테이블에 렌더링하는 함수
+    function loadProducts() {
+        fetch('/api/products')
+            .then(response => response.json())
+            .then(products => {
+                const tbody = document.getElementById('product-list-body');
+                tbody.innerHTML = '';
+
+                if (products.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">등록된 상품이 없습니다.</td></tr>`;
+                    return;
+                }
+
+                products.forEach(product => {
+                    const row = `
+                        <tr>
+                            <td><strong>${product.id}</strong></td>
+                            <td>${product.name}</td>
+                            <td>${product.price.toLocaleString()}원</td>
+                            <td><span class="badge bg-secondary fs-6">${product.quantity} 개</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-success me-1" onclick="openInboundModal(${product.id}, '${product.name}')">입고</button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="openOutboundModal(${product.id}, '${product.name}')">출고</button>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            })
+            .catch(error => {
+                console.error('상품 목록 조회 중 오류 발생:', error);
+            });
+    }
+
+    // 2. 백엔드에서 입출고 이력을 가져와 우측 감사 장부에 렌더링하는 함수
+    function loadHistories() {
+        fetch('/api/products/histories')
+            .then(response => response.json())
+            .then(histories => {
+                const listGroup = document.getElementById('history-list-group');
+                listGroup.innerHTML = '';
+
+                if (histories.length === 0) {
+                    listGroup.innerHTML = `<div class="text-center text-muted py-4">기록된 입출고 이력이 없습니다.</div>`;
+                    return;
+                }
+
+                histories.reverse().forEach(history => {
+                    const isInbound = history.type === 'INBOUND';
+                    const badgeColor = isInbound ? 'bg-success' : 'bg-danger';
+                    const typeText = isInbound ? '입고' : '출고';
+                    const formattedDate = history.createdAt.split('.')[0].replace('T', ' ');
+
+                    const item = `
+                        <div class="list-group-item py-3">
+                            <div class="d-flex w-100 justify-content-between align-items-center mb-1">
+                                <h6 class="mb-1 fw-bold">${history.productName}</h6>
+                                <span class="badge ${badgeColor}">${typeText} : ${history.amount}개</span>
+                            </div>
+                            <div class="d-flex w-100 justify-content-between">
+                                <small class="text-muted">${formattedDate}</small>
+                                ${isInbound ? `<small class="text-primary fw-bold">잔여: ${history.remainedQuantity}개</small>` : ''}
+                            </div>
+                        </div>
+                    `;
+                    listGroup.innerHTML += item;
+                });
+            })
+            .catch(error => {
+                console.error('이력 조회 중 오류 발생:', error);
+            });
+    }
+
+    // 기존 입고 팝업 열기
+    function openInboundModal(id, name) {
+        document.getElementById('modalProductId').value = id;
+        document.getElementById('modalType').value = 'inbound';
+        document.getElementById('modalTitle').innerText = `📥 상품 재고 입고`;
+        document.getElementById('modalProductName').value = name;
+        document.getElementById('modalAmountLabel').innerText = '입고할 수량';
+        document.getElementById('modalAmount').value = '';
+        stockModalObj.show(); // 분리된 주머니 호출
+    }
+
+    // 기존 출고 팝업 열기
+    function openOutboundModal(id, name) {
+        document.getElementById('modalProductId').value = id;
+        document.getElementById('modalType').value = 'outbound';
+        document.getElementById('modalTitle').innerText = `📤 상품 재고 출고 (FIFO)`;
+        document.getElementById('modalProductName').value = name;
+        document.getElementById('modalAmountLabel').innerText = '출고할 수량';
+        document.getElementById('modalAmount').value = '';
+        stockModalObj.show(); // 분리된 주머니 호출
+    }
+
+    // 신규 등록 팝업 열기
+    function openCreateProductModal() {
+        document.getElementById('createProductName').value = '';
+        document.getElementById('createProductPrice').value = '';
+        document.getElementById('createProductQuantity').value = '';
+        createModalObj.show(); // 분리된 주머니 호출
+    }
+
+    // 입출고(PATCH) 요청 전송 함수
+    function submitStockAction() {
+        const id = document.getElementById('modalProductId').value;
+        const type = document.getElementById('modalType').value;
+        const amount = parseInt(document.getElementById('modalAmount').value);
+
+        if (!amount || amount <= 0) {
+            alert('올바른 수량을 입력해 주세요.');
+            return;
+        }
+
+        fetch(`/api/products/${id}/${type}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: amount })
+        })
+        .then(async response => {
+            if (response.ok) {
+                alert(`${type === 'inbound' ? '입고' : '출고'} 처리가 완료되었습니다.`);
+                stockModalObj.hide();
+                loadProducts();
+                loadHistories();
+            } else {
+                const errorData = await response.json().catch(() => ({}));
+                alert(`실패: ${errorData.message || '처리 중 오류가 발생했습니다.'}`);
+            }
+        })
+        .catch(error => {
+            console.error('네트워크 오류:', error);
+        });
+    }
+
+    // 신규 상품 등록(POST) 전송 함수
+    function submitCreateProduct() {
+        const name = document.getElementById('createProductName').value.trim();
+        const price = parseInt(document.getElementById('createProductPrice').value);
+        const quantity = parseInt(document.getElementById('createProductQuantity').value);
+
+        // 프론트 단계 기본 유효성 검증
+        if (!name) { alert('상품명을 입력해 주세요.'); return; }
+        if (isNaN(price) || price < 0) { alert('올바른 가격을 입력해 주세요.'); return; }
+        if (isNaN(quantity) || quantity < 0) { alert('올바른 수량을 입력해 주세요.'); return; }
+
+        // 💡 백엔드 ProductCreateRequest DTO 스펙에 정확하게 톱니바퀴 매핑!
+        const requestBody = {
+            name: name,
+            price: price,
+            quantity: quantity
+        };
+
+        fetch(`/api/products`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        })
+        .then(async response => {
+            if (response.ok) {
+                alert(`[${name}] 신규 상품 마스터 등록이 완료되었습니다.`);
+                createModalObj.hide();
+                loadProducts();   // 마스터 테이블 갱신
+                loadHistories();  // 등록 시 입력한 수량에 대한 '최초 입고' FIFO 감사 로그 갱신
+            } else {
+                const errorData = await response.json().catch(() => ({}));
+                alert(`등록 실패: ${errorData.message || '처리 중 오류가 발생했습니다.'}`);
+            }
+        })
+        .catch(error => {
+            console.error('네트워크 오류:', error);
+            alert('서버와 통신에 실패했습니다.');
+        });
+    }
+</script>
+</body>
+</html>

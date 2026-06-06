@@ -37,6 +37,9 @@
 - [x] **비관적 락(Pessimistic Lock) 기반 동시성 제어 구축**
     - `@Lock(LockModeType.PESSIMISTIC_WRITE)`을 도입하여 다중 사용자가 동시에 동일 상품을 입·출고 요청할 때 발생하는 Race Condition 원천 차단
     - 데이터베이스 레벨에서 `SELECT ... FOR UPDATE` 잠금을 획득하여 트래픽을 안전하게 격리하고 재고 무결성 100% 달성
+- [x] **Vanilla JS & Bootstrap 기반 관리자 대시보드 구축**
+    - 백엔드 생산성에 집중하기 위해 무거운 프레임워크(React/Vue) 대신 순수 HTML/JS(`Fetch API`)를 활용한 경량 시뮬레이터 구현
+    - 실시간 재고 마스터 테이블, 선입선출(FIFO) 감사 장부 타임라인, 입출고 및 신규 등록 모달 연동 완료
 
 ---
 
